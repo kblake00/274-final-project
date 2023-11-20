@@ -9,7 +9,7 @@
 #include "Matrix.h"
 #include "MatrixMath.h"
 
-#define BEZIER_ORDER_FOOT    7
+#define BEZIER_ORDER_FOOT 7
 #define NUM_INPUTS (12 + 2*(BEZIER_ORDER_FOOT+1))
 #define NUM_OUTPUTS 23
 
@@ -35,6 +35,12 @@ Matrix InverseMassMatrix(2,2);
 Matrix temp_product(2,2);
 Matrix Lambda(2,2);
 
+// q1 is hip joint on non-inverted leg -> motor A
+// q2 is knee joint on non-inverted leg -> motor B
+// q3 is hip joint on inverted leg -> motor C
+// q4 is knee joint on inverted leg -> motor D
+// non-inverted leg is the leg closest to you if viewing the robot walking forward corresponds to the robot moving to the right
+
 // Variables for q1
 float current1;
 float current_des1 = 0;
@@ -54,6 +60,26 @@ float angle2;
 float velocity2;
 float duty_cycle2;
 float angle2_init;
+
+// Variables for q3
+float current3;
+float current_des3 = 0;
+float prev_current_des3 = 0;
+float current_int3 = 0;
+float angle3;
+float velocity3;
+float duty_cycle3;
+float angle3_init;
+
+// Variables for q4
+float current4;
+float current_des4 = 0;
+float prev_current_des4 = 0;
+float current_int4 = 0;
+float angle4;
+float velocity4;
+float duty_cycle4;
+float angle4_init;
 
 // Fixed kinematic parameters
 const float l_OA=.011; 
@@ -105,7 +131,8 @@ void CurrentLoop()
     
     //use the motor shield as follows:
     //motorShield.motorAWrite(DUTY CYCLE, DIRECTION), DIRECTION = 0 is forward, DIRECTION =1 is backwards.
-        
+    
+    // q1 motor current control
     current1 = -(((float(motorShield.readCurrentA())/65536.0f)*30.0f)-15.0f);           // measure current
     velocity1 = encoderA.getVelocity() * PULSE_TO_RAD;                                  // measure velocity        
     float err_c1 = current_des1 - current1;                                             // current errror
@@ -126,6 +153,7 @@ void CurrentLoop()
     }             
     prev_current_des1 = current_des1; 
     
+    // q2 motor current control
     current2     = -(((float(motorShield.readCurrentB())/65536.0f)*30.0f)-15.0f);       // measure current
     velocity2 = encoderB.getVelocity() * PULSE_TO_RAD;                                  // measure velocity  
     float err_c2 = current_des2 - current2;                                             // current error
@@ -146,6 +174,47 @@ void CurrentLoop()
     }             
     prev_current_des2 = current_des2; 
     
+    // q3 motor current control
+    current3 = -(((float(motorShield.readCurrentC())/65536.0f)*30.0f)-15.0f);           // measure current
+    velocity3 = encoderC.getVelocity() * PULSE_TO_RAD;                                  // measure velocity        
+    float err_c3 = current_des3 - current3;                                             // current errror
+    current_int3 += err_c3;                                                             // integrate error
+    current_int3 = fmaxf( fminf(current_int3, current_int_max), -current_int_max);      // anti-windup
+    float ff3 = R*current_des3 + k_t*velocity3;                                         // feedforward terms
+    duty_cycle3 = (ff3 + current_Kp*err_c3 + current_Ki*current_int3)/supply_voltage;   // PI current controller
+    
+    float absDuty3 = abs(duty_cycle3);
+    if (absDuty3 > duty_max) {
+        duty_cycle3 *= duty_max / absDuty3;
+        absDuty3 = duty_max;
+    }    
+    if (duty_cycle3 < 0) { // backwards
+        motorShield.motorCWrite(absDuty3, 1);
+    } else { // forwards
+        motorShield.motorCWrite(absDuty3, 0);
+    }             
+    prev_current_des3 = current_des3;
+
+    // q4 motor current control
+    current4 = -(((float(motorShield.readCurrentD())/65536.0f)*30.0f)-15.0f);           // measure current
+    velocity4 = encoderD.getVelocity() * PULSE_TO_RAD;                                  // measure velocity        
+    float err_c4 = current_des4 - current4;                                             // current errror
+    current_int4 += err_c4;                                                             // integrate error
+    current_int4 = fmaxf( fminf(current_int4, current_int_max), -current_int_max);      // anti-windup
+    float ff4 = R*current_des4 + k_t*velocity4;                                         // feedforward terms
+    duty_cycle4 = (ff1 + current_Kp*err_c4 + current_Ki*current_int4)/supply_voltage;   // PI current controller
+    
+    float absDuty4 = abs(duty_cycle4);
+    if (absDuty4 > duty_max) {
+        duty_cycle4 *= duty_max / absDuty4;
+        absDuty4 = duty_max;
+    }    
+    if (duty_cycle4 < 0) { // backwards
+        motorShield.motorAWrite(absDuty4, 1);
+    } else { // forwards
+        motorShield.motorAWrite(absDuty4, 0);
+    }             
+    prev_current_des4 = current_des4;
 }
 
 int main (void)
@@ -204,6 +273,8 @@ int main (void)
 
             motorShield.motorAWrite(0, 0); //turn motor A off
             motorShield.motorBWrite(0, 0); //turn motor B off
+            motorShield.motorCWrite(0, 0); //turn motor C off
+            motorShield.motorDWrite(0, 0); //turn motor D off
                          
             // Run experiment
             while( t.read() < start_period + traj_period + end_period) { 
@@ -213,12 +284,22 @@ int main (void)
                 velocity1 = encoderA.getVelocity() * PULSE_TO_RAD;
                  
                 angle2 = encoderB.getPulses() * PULSE_TO_RAD + angle2_init;       
-                velocity2 = encoderB.getVelocity() * PULSE_TO_RAD;           
+                velocity2 = encoderB.getVelocity() * PULSE_TO_RAD;   
+
+                angle3 = encoderC.getPulses() *PULSE_TO_RAD + angle3_init;
+                velocity3 = encoderC.getPulses() *PULSE_TO_RAD;
+
+                angle4 = encoderD.getPulses() *PULSE_TO_RAD + angle4_init;
+                velocity4 = encoderD.getPulses() *PULSE_TO_RAD;        
                 
                 const float th1 = angle1;
                 const float th2 = angle2;
+                const float th3 = angle3;
+                const float th4 = angle4;
                 const float dth1= velocity1;
                 const float dth2= velocity2;
+                const float dth3 = velocity3;
+                const float dth4 = velocity4;
  
                 // Calculate the Jacobian
                 float Jx_th1 = l_AC*cos(th1 + th2) + l_DE*cos(th1) + l_OB*cos(th1);
