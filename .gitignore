@@ -1,0 +1,11 @@
+BUILD
+.mbed
+compile_commands.json
+.clangd
+.cache
+ExperimentServer
+Matrix
+MatrixMath
+MotorShield
+QEI_pmw
+mbed-os
