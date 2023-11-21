@@ -202,7 +202,7 @@ void CurrentLoop()
     current_int4 += err_c4;                                                             // integrate error
     current_int4 = fmaxf( fminf(current_int4, current_int_max), -current_int_max);      // anti-windup
     float ff4 = R*current_des4 + k_t*velocity4;                                         // feedforward terms
-    duty_cycle4 = (ff1 + current_Kp*err_c4 + current_Ki*current_int4)/supply_voltage;   // PI current controller
+    duty_cycle4 = (ff4 + current_Kp*err_c4 + current_Ki*current_int4)/supply_voltage;   // PI current controller
     
     float absDuty4 = abs(duty_cycle4);
     if (absDuty4 > duty_max) {
@@ -210,9 +210,9 @@ void CurrentLoop()
         absDuty4 = duty_max;
     }    
     if (duty_cycle4 < 0) { // backwards
-        motorShield.motorAWrite(absDuty4, 1);
+        motorShield.motorDWrite(absDuty4, 1);
     } else { // forwards
-        motorShield.motorAWrite(absDuty4, 0);
+        motorShield.motorDWrite(absDuty4, 0);
     }             
     prev_current_des4 = current_des4;
 }
@@ -320,8 +320,8 @@ int main (void)
                 float dxFoot = Jx_th1*dth1 + Jx_th2*dth2;
                 float dyFoot = Jy_th1*dth1 + Jy_th2*dth2;
 
-                float xFootL = l_AC*sin(th3 + th4) + l_DE*sin(th3) + l_OB*sin(th4);
-                float yFootL = - l_AC*cos(th3 + th4) - l_DE*cos(th3) - l_OB*cos(th4);
+                float xFootL = l_AC*sin(th3 + th4) + l_DE*sin(th3) + l_OB*sin(th3);
+                float yFootL = - l_AC*cos(th3 + th4) - l_DE*cos(th3) - l_OB*cos(th3);
                 float dxFootL = Jx_th3*dth3 + Jx_th4*dth4;
                 float dyFootL = Jy_th3*dth3 + Jy_th4*dth4;
 
@@ -341,12 +341,12 @@ int main (void)
                 }
                 else if (t < start_period + traj_period)
                 {
-                    K_xx = input_params[5];  // Foot stiffness N/m
-                    K_yy = input_params[6];  // Foot stiffness N/m
-                    K_xy = input_params[7];  // Foot stiffness N/m
-                    D_xx = input_params[8];  // Foot damping N/(m/s)
-                    D_yy = input_params[9];  // Foot damping N/(m/s)
-                    D_xy = input_params[10]; // Foot damping N/(m/s)
+                    K_xx = input_params[7];  // Foot stiffness N/m
+                    K_yy = input_params[8];  // Foot stiffness N/m
+                    K_xy = input_params[9];  // Foot stiffness N/m
+                    D_xx = input_params[10];  // Foot damping N/(m/s)
+                    D_yy = input_params[11];  // Foot damping N/(m/s)
+                    D_xy = input_params[12]; // Foot damping N/(m/s)
                     teff = (t-start_period);
                     vMult = 1;
                 }
