@@ -10,7 +10,7 @@
 #include "MatrixMath.h"
 
 #define BEZIER_ORDER_FOOT 7
-#define NUM_INPUTS (12 + 2*(BEZIER_ORDER_FOOT+1))
+#define NUM_INPUTS (14 + 2*(BEZIER_ORDER_FOOT+1))
 #define NUM_OUTPUTS 23
 
 #define PULSE_TO_RAD (2.0f*3.14159f / 1200.0f)
@@ -235,7 +235,7 @@ int main (void)
         
         // If there are new inputs, this code will run
         if (server.getParams(input_params,NUM_INPUTS)) {
-            
+           
                         
             // Get inputs from MATLAB          
             start_period                = input_params[0];    // First buffer time, before trajectory
@@ -244,14 +244,16 @@ int main (void)
     
             angle1_init                 = input_params[3];    // Initial angle for q1 (rad)
             angle2_init                 = input_params[4];    // Initial angle for q2 (rad)
+            angle3_init                 = input_params[5];    // Initial angle for q3 (rad)
+            angle4_init                 = input_params[6];    // Initial angle for q4 (rad)
 
-            K_xx                        = input_params[5];    // Foot stiffness N/m
-            K_yy                        = input_params[6];    // Foot stiffness N/m
-            K_xy                        = input_params[7];    // Foot stiffness N/m
-            D_xx                        = input_params[8];    // Foot damping N/(m/s)
-            D_yy                        = input_params[9];    // Foot damping N/(m/s)
-            D_xy                        = input_params[10];   // Foot damping N/(m/s)
-            duty_max                    = input_params[11];   // Maximum duty factor
+            K_xx                        = input_params[7];    // Foot stiffness N/m
+            K_yy                        = input_params[8];    // Foot stiffness N/m
+            K_xy                        = input_params[9];    // Foot stiffness N/m
+            D_xx                        = input_params[10];    // Foot damping N/(m/s)
+            D_yy                        = input_params[11];    // Foot damping N/(m/s)
+            D_xy                        = input_params[12];   // Foot damping N/(m/s)
+            duty_max                    = input_params[13];   // Maximum duty factor
           
             // Get foot trajectory points
             float foot_pts[2*(BEZIER_ORDER_FOOT+1)];
@@ -291,13 +293,13 @@ int main (void)
 
                 angle4 = encoderD.getPulses() *PULSE_TO_RAD + angle4_init;
                 velocity4 = encoderD.getPulses() *PULSE_TO_RAD;        
-                
+
                 const float th1 = angle1;
                 const float th2 = angle2;
                 const float th3 = angle3;
                 const float th4 = angle4;
-                const float dth1= velocity1;
-                const float dth2= velocity2;
+                const float dth1 = velocity1;
+                const float dth2 = velocity2;
                 const float dth3 = velocity3;
                 const float dth4 = velocity4;
  
@@ -307,11 +309,21 @@ int main (void)
                 float Jy_th1 = l_AC*sin(th1 + th2) + l_DE*sin(th1) + l_OB*sin(th1);
                 float Jy_th2 = l_AC*sin(th1 + th2);
 
+                float Jx_th3 = l_AC*cos(th3 + th4) + l_DE*cos(th3) + l_OB*cos(th3);
+                float Jx_th4 = l_AC*cos(th3 + th4);
+                float Jy_th3 = l_AC*sin(th3 + th4) + l_DE*sin(th3) + l_OB*sin(th3);
+                float Jy_th4 = l_AC*sin(th3 + th4);
+
                 // Calculate the forward kinematics (position and velocity)
                 float xFoot = l_AC*sin(th1 + th2) + l_DE*sin(th1) + l_OB*sin(th1);
                 float yFoot = - l_AC*cos(th1 + th2) - l_DE*cos(th1) - l_OB*cos(th1);
                 float dxFoot = Jx_th1*dth1 + Jx_th2*dth2;
-                float dyFoot = Jy_th1*dth1 + Jy_th2*dth2;       
+                float dyFoot = Jy_th1*dth1 + Jy_th2*dth2;
+
+                float xFootL = l_AC*sin(th3 + th4) + l_DE*sin(th3) + l_OB*sin(th4);
+                float yFootL = - l_AC*cos(th3 + th4) - l_DE*cos(th3) - l_OB*cos(th4);
+                float dxFootL = Jx_th3*dth3 + Jx_th4*dth4;
+                float dyFootL = Jy_th3*dth3 + Jy_th4*dth4;
 
                 // Set gains based on buffer and traj times, then calculate desired x,y from Bezier trajectory at current time if necessary
                 float teff  = 0;
@@ -360,21 +372,48 @@ int main (void)
                 float alpha = abs(acos( (pow(l_OE,2) - pow(l_AC,2) - pow((l_OB+l_DE),2))/(-2.0f*l_AC*(l_OB+l_DE)) ));
                 float th2_des = -(3.14159f - alpha); 
                 float th1_des = -((3.14159f/2.0f) + atan2(yFoot_inv,xFoot_inv) - abs(asin( (l_AC/l_OE)*sin(alpha) )));
+
+                float xFootL_inv = rDesFoot[0];
+                float yFootL_inv = rDesFoot[1];                
+                float l_OEL = sqrt( (pow(xFootL_inv,2) + pow(yFootL_inv,2)) );
+                float alphaL = abs(acos( (pow(l_OEL,2) - pow(l_AC,2) - pow((l_OB+l_DE),2))/(-2.0f*l_AC*(l_OB+l_DE)) ));
+                float th4_des = -(3.14159f - alphaL); 
+                float th3_des = -((3.14159f/2.0f) + atan2(yFootL_inv,xFootL_inv) - abs(asin( (l_AC/l_OEL)*sin(alphaL) )));
                 
                 float dd = (Jx_th1*Jy_th2 - Jx_th2*Jy_th1);
                 float dth1_des = (1.0f/dd) * (  Jy_th2*vDesFoot[0] - Jx_th2*vDesFoot[1] );
                 float dth2_des = (1.0f/dd) * ( -Jy_th1*vDesFoot[0] + Jx_th1*vDesFoot[1] );
+
+                float ddL = (Jx_th3*Jy_th4 - Jx_th4*Jy_th3);
+                float dth3_des = (1.0f/ddL) * (  Jy_th4*vDesFoot[0] - Jx_th4*vDesFoot[1] );
+                float dth4_des = (1.0f/ddL) * ( -Jy_th3*vDesFoot[0] + Jx_th3*vDesFoot[1] );
         
                 // Calculate error variables
                 float e_x = rDesFoot[0] - xFoot;
                 float e_y = rDesFoot[1] - yFoot;
                 float de_x = vDesFoot[0] - dxFoot;
                 float de_y = vDesFoot[1] - dyFoot;
+
+                float e_xL = rDesFoot[0] - xFootL;
+                float e_yL = rDesFoot[1] - yFootL;
+                float de_xL = vDesFoot[0] - dxFootL;
+                float de_yL = vDesFoot[1] - dyFootL;
         
                 // Calculate virtual force on foot
+                // float fx = K_xx*e_x + K_xy*e_y + D_xx*de_x + D_xy*de_y;
+                // float fy = K_xy*e_x + K_yy*e_y + D_xy*de_x + D_yy*de_y;
+
                 float fx = K_xx*e_x + K_xy*e_y + D_xx*de_x + D_xy*de_y;
                 float fy = K_xy*e_x + K_yy*e_y + D_xy*de_x + D_yy*de_y;
+                float tau1_des = Jx_th1*fx + Jy_th1*fy;
+                float tau2_des = Jx_th2*fx + Jy_th2*fy;
+
+                float fxL = K_xx*e_xL + K_xy*e_yL + D_xx*de_xL + D_xy*de_yL;
+                float fyL = K_xy*e_xL + K_yy*e_yL + D_xy*de_xL + D_yy*de_yL;
+                float tau3_des = Jx_th3*fxL + Jy_th3*fyL;
+                float tau4_des = Jx_th4*fxL + Jy_th4*fyL;
                 
+                /*               
                 // Calculate mass matrix elements
                 float M11 = I1 + I2 + I3 + I4 + Ir + Ir*pow(N,2) + pow(l_AC,2)*m4 + pow(l_A_m3,2)*m3 + pow(l_B_m2,2)*m2 + pow(l_C_m4,2)*m4 
                     + pow(l_OA,2)*m3 + pow(l_OB,2)*m2 + pow(l_OA,2)*m4 + pow(l_O_m1,2)*m1 + 2*l_C_m4*l_OA*m4 + 2*l_AC*l_C_m4*m4*cos(th2) 
@@ -382,8 +421,6 @@ int main (void)
                 float M12 = I2 + I3 + pow(l_AC,2)*m4 + pow(l_A_m3,2)*m3 + pow(l_B_m2,2)*m2 + Ir*N + l_AC*l_C_m4*m4*cos(th2)
                     + l_AC*l_OA*m4*cos(th2) + l_A_m3*l_OA*m3*cos(th2) + l_B_m2*l_OB*m2*cos(th2);
                 float M22 = Ir*pow(N,2) + m4*pow(l_AC,2) + m3*pow(l_A_m3,2) + m2*pow(l_B_m2,2) + I2 + I3;
-                
-                
                 
                 // Populate mass matrix
                 MassMatrix.Clear();
@@ -408,9 +445,10 @@ int main (void)
                 float L12 = Lambda.getNumber(1,2);
                 float L21 = Lambda.getNumber(2,1);
                 float L22 = Lambda.getNumber(2,2);               
-                                
-                float tau1_des = (Jx_th1*L11 + Jx_th2*L21)*fx + (Jx_th1*L12 + Jx_th2*L22)*fy;
-                float tau2_des = (Jy_th1*L11 + Jy_th2*L21)*fx + (Jy_th1*L12 + Jy_th2*L22)*fy;
+                */
+
+                // float tau1_des = (Jx_th1*L11 + Jx_th2*L21)*fx + (Jx_th1*L12 + Jx_th2*L22)*fy;
+                // float tau2_des = (Jy_th1*L11 + Jy_th2*L21)*fx + (Jy_th1*L12 + Jy_th2*L22)*fy;
                                 
                 // Set desired currents             
                 current_des1 = tau1_des/k_t;          
@@ -457,6 +495,8 @@ int main (void)
             currentLoop.detach();
             motorShield.motorAWrite(0, 0); //turn motor A off
             motorShield.motorBWrite(0, 0); //turn motor B off
+            motorShield.motorCWrite(0, 0); //turn motor C off
+            motorShield.motorDWrite(0, 0); //turn motor D off
         
         } // end if
         
