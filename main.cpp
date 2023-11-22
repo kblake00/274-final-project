@@ -453,6 +453,8 @@ int main (void)
                 // Set desired currents             
                 current_des1 = tau1_des/k_t;          
                 current_des2 = tau2_des/k_t;
+                current_des3 = tau3_des/k_t;
+                current_des4 = tau4_des/k_t;
 
                 // Form output to send to MATLAB     
                 float output_data[NUM_OUTPUTS];
