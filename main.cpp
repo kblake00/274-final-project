@@ -10,7 +10,7 @@
 #include "MatrixMath.h"
 
 #define BEZIER_ORDER_FOOT 7
-#define NUM_INPUTS (14 + 2*(BEZIER_ORDER_FOOT+1))
+#define NUM_INPUTS 26 // changed from (14 + 2*(BEZIER_ORDER_FOOT+1)) b/c no longer using bezier
 #define NUM_OUTPUTS 23
 
 #define PULSE_TO_RAD (2.0f*3.14159f / 1200.0f)
@@ -117,6 +117,24 @@ float K_xy;
 float D_xx;
 float D_xy;
 float D_yy;
+
+// trajectory parameters for left leg
+float omega_l; 
+float x_0_l;
+float y_0_l;
+float r_l;
+float offset;
+
+//trajectory parameters for right leg
+float omega_r;
+float x_0_r;
+float y_0_r;
+float r_r;
+
+//ellipsoid parameters
+float a;
+float b;
+float theta;
 
 // Model parameters
 float supply_voltage = 12;     // motor supply voltage
@@ -254,6 +272,21 @@ int main (void)
             D_yy                        = input_params[11];    // Foot damping N/(m/s)
             D_xy                        = input_params[12];   // Foot damping N/(m/s)
             duty_max                    = input_params[13];   // Maximum duty factor
+
+            omega_l                     = input_params[14]; // trajectory parameters for left leg
+            x_0_l                       = input_params[15];
+            y_0_l                       = input_params[16];
+            r_l                         = input_params[17];
+            offset                      = input_params[18];
+            
+            omega_r                     = input_params[19]; //trajectory parameters for right leg
+            x_0_r                       = input_params[20];
+            y_0_r                       = input_params[21];
+            r_r                         = input_params[22];
+
+            a                           = input_params[23]; //ellipsoid parameters
+            b                           = input_params[24];
+            theta                       = input_params[25];
           
             // Get foot trajectory points
             float foot_pts[2*(BEZIER_ORDER_FOOT+1)];
@@ -279,7 +312,19 @@ int main (void)
             motorShield.motorDWrite(0, 0); //turn motor D off
                          
             // Run experiment
-            while( t.read() < start_period + traj_period + end_period) { 
+            while( t.read()) {
+
+                /*
+                in order to cycle our leg trajectory don't condition the while to end i.e. use while(t.read())
+                then have the while loop be broken based on completion of a certain amount of leg trajectory cycles i.e. 5
+                introduce a variable teff=t-start_period and have the desired foot trajectory be based on teff
+                use the following for desired foot position/velocity 
+                rEd_l = [p_traj.x_0_l; p_traj.y_0_l] + rotation_matrix*p_traj.r_l * [a*cos(omega_swing_l * teff + p_traj.offset); b*sin(omega_swing_l * teff + p_traj.offset)];
+
+                vEd_l = rotation_matrix*p_traj.r_l*[-a*sin(omega_swing_l*teff+ p_traj.offset)*omega_swing_l    ...
+                     b*cos(omega_swing_l*teff+ p_traj.offset)*omega_swing_l ]';
+                need to get the following parameters from matlab: x_0_l, y_0_l,r_l,a,omega_swing_l,offset,b,theta(for rotation matrix)
+                */ 
                  
                 // Read encoders to get motor states
                 angle1 = encoderA.getPulses() *PULSE_TO_RAD + angle1_init;       
@@ -358,12 +403,14 @@ int main (void)
                 
                 // Get desired foot positions and velocities
                 float rDesFoot[2] , vDesFoot[2];
-                rDesFoot_bez.evaluate(teff/traj_period,rDesFoot);
-                rDesFoot_bez.evaluateDerivative(teff/traj_period,vDesFoot);
-                vDesFoot[0]/=traj_period;
-                vDesFoot[1]/=traj_period;
-                vDesFoot[0]*=vMult;
-                vDesFoot[1]*=vMult;
+                
+                // stuff related to bezier curve foot position/velocity evaluation
+                //rDesFoot_bez.evaluate(teff/traj_period,rDesFoot);
+                //rDesFoot_bez.evaluateDerivative(teff/traj_period,vDesFoot);
+                //vDesFoot[0]/=traj_period;
+                //vDesFoot[1]/=traj_period;
+                //vDesFoot[0]*=vMult;
+                //vDesFoot[1]*=vMult;
                 
                 // Calculate the inverse kinematics (joint positions and velocities) for desired joint angles              
                 float xFoot_inv = -rDesFoot[0];
