@@ -400,13 +400,13 @@ int main (void)
                 float c_cos = cos(omega*teff + offset); //where teff = (t-start_period);
                 float c_sin  = sin(omega*teff + offset);
 
-                rDesFoot_L[0] = x_0 + r*(cos(theta)*a*c_cos - sin(theta)*b*c_sin); //left leg desired pos, vel
+                rDesFoot_L[0] = (x_0 + r*(cos(theta)*a*c_cos - sin(theta)*b*c_sin)); //left leg desired pos, vel
                 rDesFoot_L[1] = y_0 + r*(sin(theta)*a*c_cos + cos(theta)*b*c_sin);
-                vDesFoot_L[0] = r*omega*(cos(theta)*(-a)*c_sin - sin(theta)*b*c_cos);
+                vDesFoot_L[0] = (r*omega*(cos(theta)*(-a)*c_sin - sin(theta)*b*c_cos));
                 vDesFoot_L[1] = r*omega*(sin(theta)*(-a)*c_sin + cos(theta)*b*c_cos);
 
-                c_cos = a*cos(omega*teff); //where teff = (t-start_period); 
-                c_sin  = b*sin(omega*teff);
+                c_cos = cos(omega*teff); //where teff = (t-start_period); 
+                c_sin  = sin(omega*teff);
 
                 rDesFoot_R[0] = x_0 + r*(cos(theta)*a*c_cos - sin(theta)*b*c_sin); //same code for right leg, now without offset in c_cos, c_sin
                 rDesFoot_R[1] = y_0 + r*(sin(theta)*a*c_cos + cos(theta)*b*c_sin);
