@@ -400,21 +400,22 @@ int main (void)
                 float c_cos = cos(omega*teff + offset); //where teff = (t-start_period);
                 float c_sin  = sin(omega*teff + offset);
 
-                rDesFoot_L[0] = (x_0 + r*(cos(theta)*a*c_cos - sin(theta)*b*c_sin)); //left leg desired pos, vel
+                rDesFoot_L[0] = (x_0 + r*(cos(theta)*a*c_cos - sin(theta)*b*c_sin)); //left leg desired pos, vel MAKE NEGATIVE ONCE MOUNTED
                 rDesFoot_L[1] = y_0 + r*(sin(theta)*a*c_cos + cos(theta)*b*c_sin);
                 vDesFoot_L[0] = (r*omega*(cos(theta)*(-a)*c_sin - sin(theta)*b*c_cos));
                 vDesFoot_L[1] = r*omega*(sin(theta)*(-a)*c_sin + cos(theta)*b*c_cos);
 
+               // omega = -omega;
                 c_cos = cos(omega*teff); //where teff = (t-start_period); 
                 c_sin  = sin(omega*teff);
 
-                rDesFoot_R[0] = x_0 + r*(cos(theta)*a*c_cos - sin(theta)*b*c_sin); //same code for right leg, now without offset in c_cos, c_sin
+                rDesFoot_R[0] = -(x_0 + r*(cos(theta)*a*c_cos - sin(theta)*b*c_sin)); //same code for right leg, now without offset in c_cos, c_sin
                 rDesFoot_R[1] = y_0 + r*(sin(theta)*a*c_cos + cos(theta)*b*c_sin);
-                vDesFoot_R[0] = r*omega*(cos(theta)*(-a)*c_sin - sin(theta)*b*c_cos);
+                vDesFoot_R[0] = -(r*omega*(cos(theta)*(-a)*c_sin - sin(theta)*b*c_cos));
                 vDesFoot_R[1] = r*omega*(sin(theta)*(-a)*c_sin + cos(theta)*b*c_cos);
 
                 // Calculate the inverse kinematics (joint positions and velocities) for desired joint angles              
-                float xFootR_inv = rDesFoot_R[0];
+                float xFootR_inv = -rDesFoot_R[0];
                 float yFootR_inv = rDesFoot_R[1];                
                 float l_OE_R = sqrt( (pow(xFootR_inv,2) + pow(yFootR_inv,2)) );
                 float alpha_R = abs(acos( (pow(l_OE_R,2) - pow(l_AC,2) - pow((l_OB+l_DE),2))/(-2.0f*l_AC*(l_OB+l_DE)) ));
@@ -447,36 +448,33 @@ int main (void)
                 float de_xL = vDesFoot_L[0] - dxFootL;
                 float de_yL = vDesFoot_L[1] - dyFootL;
         
-                // Calculate virtual force on foot
-                // float fx = K_xx*e_x + K_xy*e_y + D_xx*de_x + D_xy*de_y;
-                // float fy = K_xy*e_x + K_yy*e_y + D_xy*de_x + D_yy*de_y;
-                // float tau1_des = Jx_th1*fx + Jy_th1*fy;
-                // float tau2_des = Jx_th2*fx + Jy_th2*fy;
 
                 float fxL = K_xx*e_xL + K_xy*e_yL + D_xx*de_xL + D_xy*de_yL;
                 float fyL = K_xy*e_xL + K_yy*e_yL + D_xy*de_xL + D_yy*de_yL;
                 float fxR = K_xx*e_xR + K_xy*e_yR + D_xx*de_xR + D_xy*de_yR;
                 float fyR = K_xy*e_xR + K_yy*e_yR + D_xy*de_xR + D_yy*de_yR;
                 
+                
                 float tau1_des = Jx_th1*fxR + Jy_th1*fyR;
                 float tau2_des = Jx_th2*fxR + Jy_th2*fyR;
                 float tau3_des = Jx_th3*fxL + Jy_th3*fyL;
                 float tau4_des = Jx_th4*fxL + Jy_th4*fyL;
+                
 
-                /* control from simulation is currently not working, so it is commented out
+/*
                 Matrix pVprElL(2,1);
                 float pVLx = K_xx*e_xL;
                 float pVLy = K_yy*e_yL;
-                pVprElL << pVLx     
-                        << pVLy ;
+                pVprElL.Clear();
+                pVprElL << pVLx << pVLy;
+
                 // F_dampl = [-D_x*(vels(1,:) - vEd_l(1)); -D_y*(vels(2,:) - vEd_l(2))];
                 Matrix FdampL(2,1);
                 float fdLx = -D_xx*de_xL;
                 float fdLy = -D_yy*de_yL;
-                // Populate matrix
                 FdampL.Clear();
-                FdampL << fdLx
-                        << fdLy ;
+                FdampL << fdLx << fdLy ;
+
                 // Populate Jacobian matrix
                 JacobianL.Clear();
                 JacobianL << Jx_th3 << Jx_th4
@@ -493,16 +491,15 @@ int main (void)
                 Matrix pVprElR(2,1);
                 float pVRx = K_xx*e_xR;
                 float pVRy = K_yy*e_yR;
-                pVprElR << pVRx     
-                        << pVRy ;
+                pVprElR.Clear();
+                pVprElR << pVRx << pVRy ;
                 // F_dampl = [-D_x*(vels(1,:) - vEd_l(1)); -D_y*(vels(2,:) - vEd_l(2))];
                 Matrix FdampR(2,1);
                 float fdRx = -D_xx*de_xR;
                 float fdRy = -D_yy*de_yR;
                 // Populate matrix
                 FdampR.Clear();
-                FdampR << fdRx
-                        << fdRy ;
+                FdampR << fdRx << fdRy ;
                 // Populate Jacobian matrix
                 JacobianR.Clear();
                 JacobianR << Jx_th1 << Jx_th2
@@ -515,43 +512,6 @@ int main (void)
                 float tau1_des = tauR.getNumber(1,1);
                 float tau2_des = tauR.getNumber(2,1);
                 */
-
-                /*               
-                // Calculate mass matrix elements
-                float M11 = I1 + I2 + I3 + I4 + Ir + Ir*pow(N,2) + pow(l_AC,2)*m4 + pow(l_A_m3,2)*m3 + pow(l_B_m2,2)*m2 + pow(l_C_m4,2)*m4 
-                    + pow(l_OA,2)*m3 + pow(l_OB,2)*m2 + pow(l_OA,2)*m4 + pow(l_O_m1,2)*m1 + 2*l_C_m4*l_OA*m4 + 2*l_AC*l_C_m4*m4*cos(th2) 
-                    + 2*l_AC*l_OA*m4*cos(th2) + 2*l_A_m3*l_OA*m3*cos(th2) + 2*l_B_m2*l_OB*m2*cos(th2); 
-                float M12 = I2 + I3 + pow(l_AC,2)*m4 + pow(l_A_m3,2)*m3 + pow(l_B_m2,2)*m2 + Ir*N + l_AC*l_C_m4*m4*cos(th2)
-                    + l_AC*l_OA*m4*cos(th2) + l_A_m3*l_OA*m3*cos(th2) + l_B_m2*l_OB*m2*cos(th2);
-                float M22 = Ir*pow(N,2) + m4*pow(l_AC,2) + m3*pow(l_A_m3,2) + m2*pow(l_B_m2,2) + I2 + I3;
-                
-                // Populate mass matrix
-                MassMatrix.Clear();
-                MassMatrix << M11 << M12
-                           << M12 << M22;
-                
-                // Populate Jacobian matrix
-                Jacobian.Clear();
-                Jacobian << Jx_th1 << Jx_th2
-                         << Jy_th1 << Jy_th2;
-                
-                // Once you have copied the elements of the mass matrix, uncomment the following section
-                
-                // Calculate Lambda matrix
-                JacobianT = MatrixMath::Transpose(Jacobian);
-                InverseMassMatrix = MatrixMath::Inv(MassMatrix);
-                temp_product = Jacobian*InverseMassMatrix*JacobianT;
-                Lambda = MatrixMath::Inv(temp_product); 
-                
-                // Pull elements of Lambda matrix
-                float L11 = Lambda.getNumber(1,1);
-                float L12 = Lambda.getNumber(1,2);
-                float L21 = Lambda.getNumber(2,1);
-                float L22 = Lambda.getNumber(2,2);               
-                */
-
-                // float tau1_des = (Jx_th1*L11 + Jx_th2*L21)*fx + (Jx_th1*L12 + Jx_th2*L22)*fy;
-                // float tau2_des = (Jy_th1*L11 + Jy_th2*L21)*fx + (Jy_th1*L12 + Jy_th2*L22)*fy;
                                 
                 // Set desired currents             
                 current_des1 = tau1_des/k_t;          
