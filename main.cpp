@@ -10,7 +10,7 @@
 #include "MatrixMath.h"
 
 #define BEZIER_ORDER_FOOT 7
-#define NUM_INPUTS 22 // changed from (14 + 2*(BEZIER_ORDER_FOOT+1)) b/c no longer using bezier
+#define NUM_INPUTS 26 // changed from (14 + 2*(BEZIER_ORDER_FOOT+1)) b/c no longer using bezier
 #define NUM_OUTPUTS 45
 
 #define PULSE_TO_RAD (2.0f*3.14159f / 1200.0f)
@@ -112,12 +112,16 @@ float current_Kp = 4.0f;
 float current_Ki = 0.4f;           
 float current_int_max = 3.0f;       
 float duty_max;      
-float K_xx;
-float K_yy;
+float K_xx_L;
+float K_yy_L;
+float K_xx_R;
+float K_yy_R;
 float K_xy;
-float D_xx;
+float D_xx_L;
 float D_xy;
-float D_yy;
+float D_yy_L;
+float D_xx_R;
+float D_yy_R;
 
 // trajectory parameters for left leg
 float omega; 
@@ -257,23 +261,27 @@ int main (void)
             angle3_init                 = input_params[5];    // Initial angle for q3 (rad)
             angle4_init                 = input_params[6];    // Initial angle for q4 (rad)
 
-            K_xx                        = input_params[7];    // Foot stiffness N/m
-            K_yy                        = input_params[8];    // Foot stiffness N/m
-            K_xy                        = input_params[9];    // Foot stiffness N/m
-            D_xx                        = input_params[10];    // Foot damping N/(m/s)
-            D_yy                        = input_params[11];    // Foot damping N/(m/s)
-            D_xy                        = input_params[12];   // Foot damping N/(m/s)
-            duty_max                    = input_params[13];   // Maximum duty factor
+            K_xx_L                      = input_params[7];    // Foot stiffness N/m
+            K_yy_L                      = input_params[8];    // Foot stiffness N/m
+            K_xx_R                      = input_params[9];    // Foot stiffness N/m
+            K_yy_R                      = input_params[10];    // Foot stiffness N/m
+            K_xy                        = input_params[11];    // Foot stiffness N/m
+            D_xx_L                      = input_params[12];    // Foot damping N/(m/s)
+            D_yy_L                      = input_params[13];    // Foot damping N/(m/s)
+            D_xx_R                      = input_params[14];    // Foot damping N/(m/s)
+            D_yy_R                      = input_params[15];    // Foot damping N/(m/s)
+            D_xy                        = input_params[16];   // Foot damping N/(m/s)
+            duty_max                    = input_params[17];   // Maximum duty factor
 
-            omega                     = input_params[14]; // trajectory parameters
-            x_0                       = input_params[15];
-            y_0                       = input_params[16];
-            r                         = input_params[17];
-            offset                      = input_params[18];
+            omega                     = input_params[18]; // trajectory parameters
+            x_0                       = input_params[19];
+            y_0                       = input_params[20];
+            r                         = input_params[21];
+            offset                      = input_params[22];
 
-            a                           = input_params[19]; // ellipsoid parameters
-            b                           = input_params[20];
-            theta                       = input_params[21];
+            a                           = input_params[23]; // ellipsoid parameters
+            b                           = input_params[24];
+            theta                       = input_params[25];
             
             // Attach current loop interrupt
             currentLoop.attach_us(CurrentLoop,current_control_period_us);
@@ -342,24 +350,34 @@ int main (void)
                 float teff  = 0;
                 float vMult = 0;
                 if( t < start_period) { //before sim, waiting on commands
-                    if (K_xx > 0 || K_yy > 0) {
-                        K_xx = 100; 
-                        K_yy = 100; 
-                        D_xx = 5;  
-                        D_yy = 5;  
+                    if (K_xx_L > 0 || K_yy_L > 0) {
+                        K_xx_L = 100; 
+                        K_yy_L = 100; 
+                        D_xx_L = 5;  
+                        D_yy_L = 5;  
                         K_xy = 0;
                         D_xy = 0;
+                    }
+                    if (K_xx_R > 0 || K_yy_R > 0) {
+                        K_xx_R = 100; 
+                        K_yy_R = 100; 
+                        D_xx_R = 5;  
+                        D_yy_R = 5;
                     }
                     teff = 0;
                 }
                 else if (t < start_period + traj_period) //within sim time
                 {
-                    K_xx = input_params[7];  // Foot stiffness N/m
-                    K_yy = input_params[8];  // Foot stiffness N/m
-                    K_xy = input_params[9];  // Foot stiffness N/m
-                    D_xx = input_params[10];  // Foot damping N/(m/s)
-                    D_yy = input_params[11];  // Foot damping N/(m/s)
-                    D_xy = input_params[12]; // Foot damping N/(m/s)
+                    K_xx_L = input_params[7];  // Foot stiffness N/m
+                    K_yy_L = input_params[8];  // Foot stiffness N/m
+                    K_xx_R = input_params[9];  // Foot stiffness N/m
+                    K_yy_R = input_params[10];  // Foot stiffness N/m
+                    K_xy = input_params[11];  // Foot stiffness N/m
+                    D_xx_L = input_params[12];  // Foot damping N/(m/s)
+                    D_yy_L = input_params[13];  // Foot damping N/(m/s)
+                    D_xx_R = input_params[14];  // Foot damping N/(m/s)
+                    D_yy_R = input_params[15];  // Foot damping N/(m/s)
+                    D_xy = input_params[16]; // Foot damping N/(m/s)
                     teff = (t-start_period);
                     vMult = 1;
                 }
@@ -449,10 +467,10 @@ int main (void)
                 float de_yL = vDesFoot_L[1] - dyFootL;
         
 
-                float fxL = K_xx*e_xL + K_xy*e_yL + D_xx*de_xL + D_xy*de_yL;
-                float fyL = K_xy*e_xL + K_yy*e_yL + D_xy*de_xL + D_yy*de_yL;
-                float fxR = K_xx*e_xR + K_xy*e_yR + D_xx*de_xR + D_xy*de_yR;
-                float fyR = K_xy*e_xR + K_yy*e_yR + D_xy*de_xR + D_yy*de_yR;
+                float fxL = K_xx_L*e_xL + K_xy*e_yL + D_xx_L*de_xL + D_xy*de_yL;
+                float fyL = K_xy*e_xL + K_yy_L*e_yL + D_xy*de_xL + D_yy_L*de_yL;
+                float fxR = K_xx_R*e_xR + K_xy*e_yR + D_xx_R*de_xR + D_xy*de_yR;
+                float fyR = K_xy*e_xR + K_yy_R*e_yR + D_xy*de_xR + D_yy_R*de_yR;
                 
                 
                 float tau1_des = Jx_th1*fxR + Jy_th1*fyR;
