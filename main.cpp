@@ -175,7 +175,7 @@ void CurrentLoop()
     velocity2 = encoderB.getVelocity() * PULSE_TO_RAD;                                  // measure velocity  
     float err_c2 = current_des2 - current2;                                             // current error
     current_int2 += err_c2;                                                             // integrate error
-    current_int2 = fmaxf( fminf(current_int2, current_int_max), -current_int_max);      // anti-windup   
+    current_int2 = fmaxf( fminf(current_int2, current_int_max), -current_int_max);       // anti-windup   
     float ff2 = R*current_des2 + k_t*velocity2;                                         // feedforward terms
     duty_cycle2 = (ff2 + current_Kp*err_c2 + current_Ki*current_int2)/supply_voltage;   // PI current controller
     
@@ -423,7 +423,6 @@ int main (void)
                 vDesFoot_L[0] = (r*omega*(cos(theta)*(-a)*c_sin - sin(theta)*b*c_cos));
                 vDesFoot_L[1] = r*omega*(sin(theta)*(-a)*c_sin + cos(theta)*b*c_cos);
 
-               // omega = -omega;
                 c_cos = cos(omega*teff); //where teff = (t-start_period); 
                 c_sin  = sin(omega*teff);
 
@@ -471,6 +470,7 @@ int main (void)
                 float fyL = K_xy*e_xL + K_yy_L*e_yL + D_xy*de_xL + D_yy_L*de_yL;
                 float fxR = K_xx_R*e_xR + K_xy*e_yR + D_xx_R*de_xR + D_xy*de_yR;
                 float fyR = K_xy*e_xR + K_yy_R*e_yR + D_xy*de_xR + D_yy_R*de_yR;
+
                 
                 
                 float tau1_des = Jx_th1*fxR + Jy_th1*fyR;
@@ -536,6 +536,11 @@ int main (void)
                 current_des2 = tau2_des/k_t;
                 current_des3 = tau3_des/k_t;
                 current_des4 = tau4_des/k_t;
+
+                //current_des1 = (K_xx_R*(th1_des - th1)+D_xx_R*(dth1_des - dth1))/k_t; //          
+                //current_des2 = (K_yy_R*(th2_des - th2)+D_yy_R*(dth2_des - dth2))/k_t; //
+                //current_des3 = (K_xx_L*(th3_des - th3)+D_xx_L*(dth3_des - dth3))/k_t; //          
+                //current_des4 = (K_yy_L*(th4_des - th4)+D_yy_L*(dth4_des - dth4))/k_t; //
 
                 // Form output to send to MATLAB     
                 float output_data[NUM_OUTPUTS];
