@@ -111,7 +111,7 @@ float start_period, traj_period, end_period;
 float current_Kp = 4.0f;         
 float current_Ki = 0.4f;           
 float current_int_max = 3.0f;       
-float duty_max;      
+float duty_max;
 float K_xx_L;
 float K_yy_L;
 float K_xx_R;
@@ -171,7 +171,7 @@ void CurrentLoop()
     prev_current_des1 = current_des1; 
     
     // q2 motor current control
-    current2     = -(((float(motorShield.readCurrentB())/65536.0f)*30.0f)-15.0f);       // measure current
+    current2 = -(((float(motorShield.readCurrentB())/65536.0f)*30.0f)-15.0f);       // measure current
     velocity2 = encoderB.getVelocity() * PULSE_TO_RAD;                                  // measure velocity  
     float err_c2 = current_des2 - current2;                                             // current error
     current_int2 += err_c2;                                                             // integrate error
