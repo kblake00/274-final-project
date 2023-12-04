@@ -10,7 +10,7 @@
 #include "MatrixMath.h"
 
 #define BEZIER_ORDER_FOOT 7
-#define NUM_INPUTS 26 // changed from (14 + 2*(BEZIER_ORDER_FOOT+1)) b/c no longer using bezier
+#define NUM_INPUTS 27 // changed from (14 + 2*(BEZIER_ORDER_FOOT+1)) b/c no longer using bezier
 #define NUM_OUTPUTS 45
 
 #define PULSE_TO_RAD (2.0f*3.14159f / 1200.0f)
@@ -128,7 +128,8 @@ float omega;
 float x_0;
 float y_0;
 float r;
-float offset;
+float offset_L;
+float offset_R;
 
 //ellipsoid parameters
 float a;
@@ -277,11 +278,12 @@ int main (void)
             x_0                       = input_params[19];
             y_0                       = input_params[20];
             r                         = input_params[21];
-            offset                      = input_params[22];
+            offset_L                  = input_params[22];
+            offset_R                  = input_params[23];
 
-            a                           = input_params[23]; // ellipsoid parameters
-            b                           = input_params[24];
-            theta                       = input_params[25];
+            a                           = input_params[24]; // ellipsoid parameters
+            b                           = input_params[25];
+            theta                       = input_params[26];
             
             // Attach current loop interrupt
             currentLoop.attach_us(CurrentLoop,current_control_period_us);
@@ -300,7 +302,7 @@ int main (void)
             motorShield.motorDWrite(0, 0); //turn motor D off
                          
             // Run experiment
-            while( t.read() < start_period + traj_period) {
+            while( t.read() < start_period + traj_period + end_period) {
                  
                 // Read encoders to get motor states
                 angle1 = encoderA.getPulses() *PULSE_TO_RAD + angle1_init;       
@@ -381,13 +383,12 @@ int main (void)
                     teff = (t-start_period);
                     vMult = 1;
                 }
-                /*
                 else //shuts off
                 {
                     teff = traj_period;
                     vMult = 0;
                 }
-                */
+                
                 
                 // Get desired foot positions and velocities
                 float rDesFoot_L[2] , vDesFoot_L[2];
@@ -413,23 +414,21 @@ int main (void)
                 need to get the following parameters from matlab: x_0_l, y_0_l,r_l,a,omega_swing_l,offset,b,theta(for rotation matrix)
                 */ 
                 
-                // if (omega*teff > 6*3.14159) {break;} // allow for 3 cycles then end the experiment
-
-                float c_cos = cos(omega*teff + offset); //where teff = (t-start_period);
-                float c_sin  = sin(omega*teff + offset);
+                float c_cos = cos(omega*teff + offset_L); //where teff = (t-start_period);
+                float c_sin  = sin(omega*teff + offset_L);
 
                 rDesFoot_L[0] = (x_0 + r*(cos(theta)*a*c_cos - sin(theta)*b*c_sin)); //left leg desired pos, vel MAKE NEGATIVE ONCE MOUNTED
                 rDesFoot_L[1] = y_0 + r*(sin(theta)*a*c_cos + cos(theta)*b*c_sin);
-                vDesFoot_L[0] = (r*omega*(cos(theta)*(-a)*c_sin - sin(theta)*b*c_cos));
-                vDesFoot_L[1] = r*omega*(sin(theta)*(-a)*c_sin + cos(theta)*b*c_cos);
+                vDesFoot_L[0] = vMult*(r*omega*(cos(theta)*(-a)*c_sin - sin(theta)*b*c_cos));
+                vDesFoot_L[1] = vMult*r*omega*(sin(theta)*(-a)*c_sin + cos(theta)*b*c_cos);
 
-                c_cos = cos(omega*teff); //where teff = (t-start_period); 
-                c_sin  = sin(omega*teff);
+                c_cos = cos(omega*teff + offset_R); //where teff = (t-start_period); 
+                c_sin  = sin(omega*teff + offset_R);
 
                 rDesFoot_R[0] = -(x_0 + r*(cos(theta)*a*c_cos - sin(theta)*b*c_sin)); //same code for right leg, now without offset in c_cos, c_sin
                 rDesFoot_R[1] = y_0 + r*(sin(theta)*a*c_cos + cos(theta)*b*c_sin);
-                vDesFoot_R[0] = -(r*omega*(cos(theta)*(-a)*c_sin - sin(theta)*b*c_cos));
-                vDesFoot_R[1] = r*omega*(sin(theta)*(-a)*c_sin + cos(theta)*b*c_cos);
+                vDesFoot_R[0] = -vMult*(r*omega*(cos(theta)*(-a)*c_sin - sin(theta)*b*c_cos));
+                vDesFoot_R[1] = vMult*r*omega*(sin(theta)*(-a)*c_sin + cos(theta)*b*c_cos);
 
                 // Calculate the inverse kinematics (joint positions and velocities) for desired joint angles              
                 float xFootR_inv = -rDesFoot_R[0];
